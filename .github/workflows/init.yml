@@ -18,6 +18,9 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Generate Wrapper
+        run: gradle wrapper --gradle-version 8.4
+
       - name: Generate Android Files
         run: |
           mkdir -p app/src/main/java/com/game/recorder
@@ -43,8 +46,8 @@ jobs:
           
           cat << 'EOF' > build.gradle.kts
           plugins {
-              id("com.android.application") version "8.2.0" apply false
-              id("org.jetbrains.kotlin.android") version "1.9.0" apply false
+              id("com.android.application") version "8.2.2" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.22" apply false
           }
           EOF
           
@@ -62,6 +65,13 @@ jobs:
                   targetSdk = 34
                   versionCode = 1
                   versionName = "1.0"
+              }
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = "17"
               }
           }
           EOF
@@ -94,8 +104,6 @@ jobs:
               }
           }
           EOF
-          
-          gradle wrapper
 
       - name: Commit Project
         run: |
