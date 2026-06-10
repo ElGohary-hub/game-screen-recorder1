@@ -18,9 +18,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Generate Wrapper
-        run: gradle wrapper --gradle-version 8.4
-
       - name: Generate Android Files
         run: |
           mkdir -p app/src/main/java/com/game/recorder
@@ -104,6 +101,9 @@ jobs:
               }
           }
           EOF
+
+      - name: Generate Wrapper
+        run: gradle wrapper --gradle-version 8.4
 
       - name: Commit Project
         run: |
