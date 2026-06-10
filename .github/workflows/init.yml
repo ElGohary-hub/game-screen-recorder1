@@ -1,0 +1,52 @@
+name: Setup Native Project
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Generate Android Files
+        run: |
+          mkdir -p app/src/main/java/com/game/recorder
+          
+          echo 'rootProject.name = "GameRecorder"' > settings.gradle.kts
+          echo 'include(":app")' >> settings.gradle.kts
+          
+          echo 'plugins { id("com.android.application") version "8.2.0" apply false; id("org.jetbrains.kotlin.android") version "1.9.0" apply false }' > build.gradle.kts
+          
+          echo 'plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }' > app/build.gradle.kts
+          echo 'android { namespace = "com.game.recorder"; compileSdk = 34; defaultConfig { applicationId = "com.game.recorder"; minSdk = 24; targetSdk = 34; versionCode = 1; versionName = "1.0" } }' >> app/build.gradle.kts
+          
+          echo '<?xml version="1.0" encoding="utf-8"?><manifest xmlns:android="http://schemas.android.com/apk/res/android"><uses-feature android:glEsVersion="0x00020000" android:required="true" /><uses-permission android:name="android.permission.RECORD_AUDIO" /><uses-permission android:name="android.permission.FOREGROUND_SERVICE" /><uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" /><application android:label="Game Recorder"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity></application></manifest>' > app/src/main/AndroidManifest.xml
+          
+          echo 'package com.game.recorder' > app/src/main/java/com/game/recorder/MainActivity.kt
+          echo 'import android.app.Activity' >> app/src/main/java/com/game/recorder/MainActivity.kt
+          echo 'import android.os.Bundle' >> app/src/main/java/com/game/recorder/MainActivity.kt
+          echo 'class MainActivity : Activity() {' >> app/src/main/java/com/game/recorder/MainActivity.kt
+          echo '    override fun onCreate(savedInstanceState: Bundle?) {' >> app/src/main/java/com/game/recorder/MainActivity.kt
+          echo '        super.onCreate(savedInstanceState)' >> app/src/main/java/com/game/recorder/MainActivity.kt
+          echo '    }' >> app/src/main/java/com/game/recorder/MainActivity.kt
+          echo '}' >> app/src/main/java/com/game/recorder/MainActivity.kt
+          
+          gradle wrapper
+
+      - name: Commit Project
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Initialize Native Android Kotlin + OpenGL Project"
+          git push
