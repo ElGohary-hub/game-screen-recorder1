@@ -15,8 +15,6 @@ import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import java.io.File
-import kotlin.system.exitProcess
 
 class MainActivity : Activity() {
 
@@ -27,16 +25,6 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // الصندوق الأسود: تسجيل الخطأ القاتل قبل ما التطبيق يخرج
-        val prefs = getSharedPreferences("CrashLog", Context.MODE_PRIVATE)
-        val lastCrash = prefs.getString("error", null)
-
-        Thread.setDefaultUncaughtExceptionHandler { _, exception ->
-            val errorMsg = exception.stackTraceToString()
-            getSharedPreferences("CrashLog", Context.MODE_PRIVATE).edit().putString("error", errorMsg).apply()
-            exitProcess(1) // قفل التطبيق فوراً عشان يلحق يحفظ الخطأ
-        }
 
         val permissions = mutableListOf(android.Manifest.permission.RECORD_AUDIO)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -55,18 +43,6 @@ class MainActivity : Activity() {
             setPadding(50, 80, 50, 50)
         }
         scrollView.addView(rootLayout)
-
-        // لو التطبيق كان عمل كراش، هيعرضلك السبب هنا أول ما تفتحه
-        if (lastCrash != null) {
-            val errorText = TextView(this).apply {
-                text = "سبب الكراش الأخير اللي قفل التطبيق:\n\n$lastCrash"
-                setTextColor(Color.RED)
-                textSize = 14f
-            }
-            rootLayout.addView(errorText)
-            addSpacer(rootLayout, 40)
-            prefs.edit().clear().apply() // مسح الخطأ عشان ميظهرش كل مرة
-        }
 
         val titleText = TextView(this).apply {
             text = "لوحة تحكم المسجل الاحترافي"
@@ -123,18 +99,31 @@ class MainActivity : Activity() {
                 val captureIntent = projectionManager.createScreenCaptureIntent()
                 startActivityForResult(captureIntent, RECORD_REQUEST_CODE)
             } else {
+                // إيقاف الخدمة
                 stopService(Intent(this, RecordService::class.java))
                 isRecording = false
                 recordButton.text = "ابدأ التسجيل"
                 recordButton.setBackgroundColor(Color.parseColor("#6200EE"))
-                
-                val file = File(getExternalFilesDir(null), "game_record.mp4")
-                Toast.makeText(this, "تم الحفظ بنجاح في: ${file.name}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "تم حفظ الفيديو في المعرض (Gallery) بنجاح!", Toast.LENGTH_LONG).show()
             }
         }
         rootLayout.addView(recordButton)
 
         setContentView(scrollView)
+    }
+
+    // المزامنة: لما ترجع تفتح التطبيق تاني وهو بيسجل، الكود ده هيجبر الزرار يظهر باللون الأحمر
+    override fun onResume() {
+        super.onResume()
+        if (RecordService.isRunning) {
+            isRecording = true
+            recordButton.text = "إيقاف وحفظ التسجيل"
+            recordButton.setBackgroundColor(Color.RED)
+        } else {
+            isRecording = false
+            recordButton.text = "ابدأ التسجيل"
+            recordButton.setBackgroundColor(Color.parseColor("#6200EE"))
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -155,8 +144,6 @@ class MainActivity : Activity() {
                     startService(serviceIntent)
                 }
                 Toast.makeText(this, "جاري التسجيل الفعلي الآن...", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "تم رفض الصلاحية", Toast.LENGTH_SHORT).show()
             }
         }
     }
