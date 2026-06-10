@@ -9,7 +9,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
-importimport android.media.MediaRecorder
+import android.media.MediaRecorder
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
@@ -79,7 +79,6 @@ class RecordService : Service() {
             val metrics = DisplayMetrics()
             windowManager.defaultDisplay.getMetrics(metrics)
             
-            // تأمين الأبعاد لتكون أرقاماً زوجية متوافقة مع كل المعالجات ومسرعات الرسوميات لطلب الأداء الأقصى
             var screenWidth = metrics.widthPixels
             var screenHeight = metrics.heightPixels
             if (screenWidth % 2 != 0) screenWidth--
@@ -100,12 +99,11 @@ class RecordService : Service() {
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 setVideoSize(screenWidth, screenHeight)
                 setVideoFrameRate(30)
-                setVideoEncodingBitRate(6 * 1024 * 1024) // بيتريد ممتاز ومتوازن جداً لمنع أي لاج في الألعاب
+                setVideoEncodingBitRate(6 * 1024 * 1024) 
                 setOutputFile(outputFile.absolutePath)
                 prepare()
             }
 
-            // الترتيب الصحيح والسليم: نربط البث أولاً بالـ Surface لتجهيز السينسورات
             virtualDisplay = mediaProjection?.createVirtualDisplay(
                 "MainScreen",
                 screenWidth, screenHeight, screenDensity,
@@ -113,12 +111,11 @@ class RecordService : Service() {
                 mediaRecorder?.surface, null, null
             )
 
-            // بعد ما تم الربط بنجاح، نشغل محرك التسجيل الفعلي بدون كراش
             mediaRecorder?.start()
             
         } catch (e: Exception) {
             e.printStackTrace()
-            stopSelf() // إلغاء تشغيل الخدمة بأمان لو حدث أي خطأ بالهاردوير
+            stopSelf() 
         }
     }
 
