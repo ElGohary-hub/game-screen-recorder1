@@ -13,9 +13,12 @@ import android.media.MediaRecorder
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.DisplayMetrics
 import android.view.WindowManager
+import android.widget.Toast
 import java.io.File
 
 class RecordService : Service() {
@@ -27,13 +30,18 @@ class RecordService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val resultCode = intent?.getIntExtra("resultCode", -1) ?: -1
-        val resultData = intent?.getParcelableExtra<Intent>("data")
+        try {
+            val resultCode = intent?.getIntExtra("resultCode", -1) ?: -1
+            val resultData = intent?.getParcelableExtra<Intent>("data")
 
-        if (resultCode != -1 && resultData != null) {
-            startForegroundServiceWithNotification()
-            startRecording(resultCode, resultData)
-        } else {
+            if (resultCode != -1 && resultData != null) {
+                startForegroundServiceWithNotification()
+                startRecording(resultCode, resultData)
+            } else {
+                stopSelf()
+            }
+        } catch (t: Throwable) {
+            showDiagnostics("كراش في تشغيل الخدمة: ${t.localizedMessage}")
             stopSelf()
         }
         return START_NOT_STICKY
@@ -79,6 +87,7 @@ class RecordService : Service() {
             val metrics = DisplayMetrics()
             windowManager.defaultDisplay.getMetrics(metrics)
             
+            // حساب أبعاد زوجية آمنة تناسب كروت الشاشة لطلب أقصى أداء
             var screenWidth = metrics.widthPixels
             var screenHeight = metrics.heightPixels
             if (screenWidth % 2 != 0) screenWidth--
@@ -99,7 +108,7 @@ class RecordService : Service() {
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 setVideoSize(screenWidth, screenHeight)
                 setVideoFrameRate(30)
-                setVideoEncodingBitRate(6 * 1024 * 1024) 
+                setVideoEncodingBitRate(5 * 1024 * 1024) 
                 setOutputFile(outputFile.absolutePath)
                 prepare()
             }
@@ -112,10 +121,18 @@ class RecordService : Service() {
             )
 
             mediaRecorder?.start()
+            showDiagnostics("بدأ التسجيل بنجاح وبدون مشاكل!")
             
-        } catch (e: Exception) {
-            e.printStackTrace()
-            stopSelf() 
+        } catch (t: Throwable) {
+            // مسك الخطأ برمجياً ومنع كراش التطبيق مع إظهاره للمستخدم
+            showDiagnostics("خطأ الهاردوير: ${t.localizedMessage}")
+            stopSelf()
+        }
+    }
+
+    private fun showDiagnostics(message: String) {
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -126,8 +143,10 @@ class RecordService : Service() {
             mediaRecorder?.release()
         } catch (e: Exception) { e.printStackTrace() }
 
-        virtualDisplay?.release()
-        mediaProjection?.stop()
+        try {
+            virtualDisplay?.release()
+            mediaProjection?.stop()
+        } catch (e: Exception) { e.printStackTrace() }
         super.onDestroy()
     }
 }
