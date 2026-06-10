@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.Button
 import android.widget.LinearLayout
@@ -12,6 +13,7 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
+import java.io.File
 
 class MainActivity : Activity() {
 
@@ -23,7 +25,6 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // تعريف مدير تسجيل الشاشة بتاع أندرويد
         projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 
         val rootLayout = LinearLayout(this).apply {
@@ -78,15 +79,16 @@ class MainActivity : Activity() {
 
         recordButton.setOnClickListener {
             if (!isRecording) {
-                // طلب صلاحية تصوير الشاشة من أندرويد
                 val captureIntent = projectionManager.createScreenCaptureIntent()
                 startActivityForResult(captureIntent, RECORD_REQUEST_CODE)
             } else {
-                // إيقاف التسجيل
+                stopService(Intent(this, RecordService::class.java))
                 isRecording = false
                 recordButton.text = "ابدأ التسجيل"
                 recordButton.setBackgroundColor(Color.parseColor("#6200EE"))
-                Toast.makeText(this, "تم إيقاف التسجيل!", Toast.LENGTH_LONG).show()
+                
+                val file = File(getExternalFilesDir(null), "game_record.mp4")
+                Toast.makeText(this, "تم الحفظ بنجاح في: ${file.name}", Toast.LENGTH_LONG).show()
             }
         }
         rootLayout.addView(recordButton)
@@ -94,7 +96,6 @@ class MainActivity : Activity() {
         setContentView(rootLayout)
     }
 
-    // هنا بنستقبل رد المستخدم (وافق ولا رفض تصوير الشاشة؟)
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == RECORD_REQUEST_CODE) {
@@ -102,9 +103,19 @@ class MainActivity : Activity() {
                 isRecording = true
                 recordButton.text = "إيقاف وحفظ التسجيل"
                 recordButton.setBackgroundColor(Color.RED)
-                Toast.makeText(this, "تم أخذ الصلاحية! (جاهزين نشغل المحرك)", Toast.LENGTH_SHORT).show()
+
+                val serviceIntent = Intent(this, RecordService::class.java).apply {
+                    putExtra("resultCode", resultCode)
+                    putExtra("data", data)
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(serviceIntent)
+                } else {
+                    startService(serviceIntent)
+                }
+                Toast.makeText(this, "جاري التسجيل الفعلي الآن...", Toast.LENGTH_SHORT).show()
             } else {
-                Toast.makeText(this, "تم رفض الصلاحية من المستخدم", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "تم رفض الصلاحية", Toast.LENGTH_SHORT).show()
             }
         }
     }
