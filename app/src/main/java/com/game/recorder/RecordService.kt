@@ -9,7 +9,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
-import android.media.MediaRecorder
+importimport android.media.MediaRecorder
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
@@ -71,43 +71,55 @@ class RecordService : Service() {
     }
 
     private fun startRecording(resultCode: Int, resultData: Intent) {
-        val mpManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        mediaProjection = mpManager.getMediaProjection(resultCode, resultData)
+        try {
+            val mpManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            mediaProjection = mpManager.getMediaProjection(resultCode, resultData)
 
-        val windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val metrics = DisplayMetrics()
-        windowManager.defaultDisplay.getMetrics(metrics)
-        val screenWidth = metrics.widthPixels
-        val screenHeight = metrics.heightPixels
-        val screenDensity = metrics.densityDpi
+            val windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            val metrics = DisplayMetrics()
+            windowManager.defaultDisplay.getMetrics(metrics)
+            
+            // تأمين الأبعاد لتكون أرقاماً زوجية متوافقة مع كل المعالجات ومسرعات الرسوميات لطلب الأداء الأقصى
+            var screenWidth = metrics.widthPixels
+            var screenHeight = metrics.heightPixels
+            if (screenWidth % 2 != 0) screenWidth--
+            if (screenHeight % 2 != 0) screenHeight--
+            val screenDensity = metrics.densityDpi
 
-        val outputFile = File(getExternalFilesDir(null), "game_record.mp4")
+            val outputFile = File(getExternalFilesDir(null), "game_record.mp4")
 
-        mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            MediaRecorder(this)
-        } else {
-            MediaRecorder()
-        }.apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setVideoSource(MediaRecorder.VideoSource.SURFACE)
-            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setVideoSize(screenWidth, screenHeight)
-            setVideoFrameRate(30)
-            setVideoEncodingBitRate(8 * 1024 * 1024)
-            setOutputFile(outputFile.absolutePath)
-            prepare()
+            mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                MediaRecorder(this)
+            } else {
+                MediaRecorder()
+            }.apply {
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setVideoSource(MediaRecorder.VideoSource.SURFACE)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setVideoEncoder(MediaRecorder.VideoEncoder.H264)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setVideoSize(screenWidth, screenHeight)
+                setVideoFrameRate(30)
+                setVideoEncodingBitRate(6 * 1024 * 1024) // بيتريد ممتاز ومتوازن جداً لمنع أي لاج في الألعاب
+                setOutputFile(outputFile.absolutePath)
+                prepare()
+            }
+
+            // الترتيب الصحيح والسليم: نربط البث أولاً بالـ Surface لتجهيز السينسورات
+            virtualDisplay = mediaProjection?.createVirtualDisplay(
+                "MainScreen",
+                screenWidth, screenHeight, screenDensity,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                mediaRecorder?.surface, null, null
+            )
+
+            // بعد ما تم الربط بنجاح، نشغل محرك التسجيل الفعلي بدون كراش
+            mediaRecorder?.start()
+            
+        } catch (e: Exception) {
+            e.printStackTrace()
+            stopSelf() // إلغاء تشغيل الخدمة بأمان لو حدث أي خطأ بالهاردوير
         }
-
-        mediaRecorder?.start()
-
-        virtualDisplay = mediaProjection?.createVirtualDisplay(
-            "MainScreen",
-            screenWidth, screenHeight, screenDensity,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            mediaRecorder?.surface, null, null
-        )
     }
 
     override fun onDestroy() {
