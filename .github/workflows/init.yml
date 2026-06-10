@@ -22,24 +22,78 @@ jobs:
         run: |
           mkdir -p app/src/main/java/com/game/recorder
           
-          echo 'rootProject.name = "GameRecorder"' > settings.gradle.kts
-          echo 'include(":app")' >> settings.gradle.kts
+          cat << 'EOF' > settings.gradle.kts
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "GameRecorder"
+          include(":app")
+          EOF
           
-          echo 'plugins { id("com.android.application") version "8.2.0" apply false; id("org.jetbrains.kotlin.android") version "1.9.0" apply false }' > build.gradle.kts
+          cat << 'EOF' > build.gradle.kts
+          plugins {
+              id("com.android.application") version "8.2.0" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.0" apply false
+          }
+          EOF
           
-          echo 'plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }' > app/build.gradle.kts
-          echo 'android { namespace = "com.game.recorder"; compileSdk = 34; defaultConfig { applicationId = "com.game.recorder"; minSdk = 24; targetSdk = 34; versionCode = 1; versionName = "1.0" } }' >> app/build.gradle.kts
+          cat << 'EOF' > app/build.gradle.kts
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+          android {
+              namespace = "com.game.recorder"
+              compileSdk = 34
+              defaultConfig {
+                  applicationId = "com.game.recorder"
+                  minSdk = 24
+                  targetSdk = 34
+                  versionCode = 1
+                  versionName = "1.0"
+              }
+          }
+          EOF
           
-          echo '<?xml version="1.0" encoding="utf-8"?><manifest xmlns:android="http://schemas.android.com/apk/res/android"><uses-feature android:glEsVersion="0x00020000" android:required="true" /><uses-permission android:name="android.permission.RECORD_AUDIO" /><uses-permission android:name="android.permission.FOREGROUND_SERVICE" /><uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" /><application android:label="Game Recorder"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity></application></manifest>' > app/src/main/AndroidManifest.xml
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-feature android:glEsVersion="0x00020000" android:required="true" />
+              <uses-permission android:name="android.permission.RECORD_AUDIO" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+              <application android:label="Game Recorder">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
           
-          echo 'package com.game.recorder' > app/src/main/java/com/game/recorder/MainActivity.kt
-          echo 'import android.app.Activity' >> app/src/main/java/com/game/recorder/MainActivity.kt
-          echo 'import android.os.Bundle' >> app/src/main/java/com/game/recorder/MainActivity.kt
-          echo 'class MainActivity : Activity() {' >> app/src/main/java/com/game/recorder/MainActivity.kt
-          echo '    override fun onCreate(savedInstanceState: Bundle?) {' >> app/src/main/java/com/game/recorder/MainActivity.kt
-          echo '        super.onCreate(savedInstanceState)' >> app/src/main/java/com/game/recorder/MainActivity.kt
-          echo '    }' >> app/src/main/java/com/game/recorder/MainActivity.kt
-          echo '}' >> app/src/main/java/com/game/recorder/MainActivity.kt
+          cat << 'EOF' > app/src/main/java/com/game/recorder/MainActivity.kt
+          package com.game.recorder
+          import android.app.Activity
+          import android.os.Bundle
+          class MainActivity : Activity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+              }
+          }
+          EOF
           
           gradle wrapper
 
