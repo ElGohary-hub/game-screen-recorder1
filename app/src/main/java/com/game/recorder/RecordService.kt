@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -12,20 +13,26 @@ import android.hardware.display.VirtualDisplay
 import android.media.MediaRecorder
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Build
-import android.os.Handler
 import android.os.IBinder
-import android.os.Looper
+import android.os.ParcelFileDescriptor
+import android.provider.MediaStore
 import android.util.DisplayMetrics
 import android.view.WindowManager
-import android.widget.Toast
-import java.io.File
 
 class RecordService : Service() {
+
+    // الذاكرة المشتركة اللي هتقول للواجهة إن المحرك داير
+    companion object {
+        var isRunning = false
+    }
 
     private var mediaProjection: MediaProjection? = null
     private var mediaRecorder: MediaRecorder? = null
     private var virtualDisplay: VirtualDisplay? = null
+    private var videoUri: Uri? = null
+    private var pfd: ParcelFileDescriptor? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -37,11 +44,11 @@ class RecordService : Service() {
             if (resultCode != -1 && resultData != null) {
                 startForegroundServiceWithNotification()
                 startRecording(resultCode, resultData)
+                isRunning = true // المحرك بدأ بنجاح
             } else {
                 stopSelf()
             }
         } catch (t: Throwable) {
-            showDiagnostics("كراش في تشغيل الخدمة: ${t.localizedMessage}")
             stopSelf()
         }
         return START_NOT_STICKY
@@ -87,14 +94,23 @@ class RecordService : Service() {
             val metrics = DisplayMetrics()
             windowManager.defaultDisplay.getMetrics(metrics)
             
-            // حساب أبعاد زوجية آمنة تناسب كروت الشاشة لطلب أقصى أداء
             var screenWidth = metrics.widthPixels
             var screenHeight = metrics.heightPixels
             if (screenWidth % 2 != 0) screenWidth--
             if (screenHeight % 2 != 0) screenHeight--
             val screenDensity = metrics.densityDpi
 
-            val outputFile = File(getExternalFilesDir(null), "game_record.mp4")
+            val values = ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, "GameRecord_${System.currentTimeMillis()}.mp4")
+                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/GameRecorder")
+                    put(MediaStore.Video.Media.IS_PENDING, 1)
+                }
+            }
+
+            videoUri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+            pfd = contentResolver.openFileDescriptor(videoUri!!, "rw")
 
             mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 MediaRecorder(this)
@@ -108,8 +124,8 @@ class RecordService : Service() {
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 setVideoSize(screenWidth, screenHeight)
                 setVideoFrameRate(30)
-                setVideoEncodingBitRate(5 * 1024 * 1024) 
-                setOutputFile(outputFile.absolutePath)
+                setVideoEncodingBitRate(6 * 1024 * 1024) 
+                setOutputFile(pfd?.fileDescriptor)
                 prepare()
             }
 
@@ -121,22 +137,14 @@ class RecordService : Service() {
             )
 
             mediaRecorder?.start()
-            showDiagnostics("بدأ التسجيل بنجاح وبدون مشاكل!")
             
         } catch (t: Throwable) {
-            // مسك الخطأ برمجياً ومنع كراش التطبيق مع إظهاره للمستخدم
-            showDiagnostics("خطأ الهاردوير: ${t.localizedMessage}")
             stopSelf()
         }
     }
 
-    private fun showDiagnostics(message: String) {
-        Handler(Looper.getMainLooper()).post {
-            Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
-        }
-    }
-
     override fun onDestroy() {
+        isRunning = false // المحرك وقف خلاص
         try {
             mediaRecorder?.stop()
             mediaRecorder?.reset()
@@ -147,6 +155,17 @@ class RecordService : Service() {
             virtualDisplay?.release()
             mediaProjection?.stop()
         } catch (e: Exception) { e.printStackTrace() }
+
+        try {
+            pfd?.close()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && videoUri != null) {
+                val values = ContentValues().apply {
+                    put(MediaStore.Video.Media.IS_PENDING, 0)
+                }
+                contentResolver.update(videoUri!!, values, null, null)
+            }
+        } catch (e: Exception) { e.printStackTrace() }
+        
         super.onDestroy()
     }
 }
