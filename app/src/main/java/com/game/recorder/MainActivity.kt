@@ -84,45 +84,4 @@ class MainActivity : Activity() {
             } else {
                 stopService(Intent(this, RecordService::class.java))
                 isRecording = false
-                recordButton.text = "ابدأ التسجيل"
-                recordButton.setBackgroundColor(Color.parseColor("#6200EE"))
-                
-                val file = File(getExternalFilesDir(null), "game_record.mp4")
-                Toast.makeText(this, "تم الحفظ بنجاح في: ${file.name}", Toast.LENGTH_LONG).show()
-            }
-        }
-        rootLayout.addView(recordButton)
-
-        setContentView(rootLayout)
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == RECORD_REQUEST_CODE) {
-            if (resultCode == RESULT_OK && data != null) {
-                isRecording = true
-                recordButton.text = "إيقاف وحفظ التسجيل"
-                recordButton.setBackgroundColor(Color.RED)
-
-                val serviceIntent = Intent(this, RecordService::class.java).apply {
-                    putExtra("resultCode", resultCode)
-                    putExtra("data", data)
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(serviceIntent)
-                } else {
-                    startService(serviceIntent)
-                }
-                Toast.makeText(this, "جاري التسجيل الفعلي الآن...", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "تم رفض الصلاحية", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private fun addSpacer(layout: LinearLayout, height: Int) {
-        val spacer = TextView(this)
-        spacer.height = height
-        layout.addView(spacer)
-    }
-}
+                recordButton.text = "ابدأ
