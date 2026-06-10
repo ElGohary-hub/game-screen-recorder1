@@ -3,6 +3,7 @@ package com.game.recorder
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.media.projection.MediaProjectionManager
 import android.os.Build
@@ -24,6 +25,15 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // طلب صلاحيات المايك والإشعارات من المستخدم لتفادي إغلاق التطبيق
+        val permissions = mutableListOf(android.Manifest.permission.RECORD_AUDIO)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(permissions.toTypedArray(), 200)
+        }
 
         projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 
@@ -78,6 +88,13 @@ class MainActivity : Activity() {
         }
 
         recordButton.setOnClickListener {
+            // التأكد إن المستخدم وافق على المايك قبل تشغيل المحرك
+            if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "لازم توافق على صلاحية المايك الأول!", Toast.LENGTH_LONG).show()
+                requestPermissions(permissions.toTypedArray(), 200)
+                return@setOnClickListener
+            }
+
             if (!isRecording) {
                 val captureIntent = projectionManager.createScreenCaptureIntent()
                 startActivityForResult(captureIntent, RECORD_REQUEST_CODE)
