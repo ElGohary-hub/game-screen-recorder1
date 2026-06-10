@@ -26,14 +26,6 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val permissions = mutableListOf(android.Manifest.permission.RECORD_AUDIO)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
-        }
-        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(permissions.toTypedArray(), 200)
-        }
-
         projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 
         val scrollView = ScrollView(this)
@@ -89,8 +81,12 @@ class MainActivity : Activity() {
         }
 
         recordButton.setOnClickListener {
+            val permissions = mutableListOf(android.Manifest.permission.RECORD_AUDIO)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+            
             if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "لازم توافق على صلاحية المايك الأول!", Toast.LENGTH_LONG).show()
                 requestPermissions(permissions.toTypedArray(), 200)
                 return@setOnClickListener
             }
@@ -99,12 +95,11 @@ class MainActivity : Activity() {
                 val captureIntent = projectionManager.createScreenCaptureIntent()
                 startActivityForResult(captureIntent, RECORD_REQUEST_CODE)
             } else {
-                // إيقاف الخدمة
                 stopService(Intent(this, RecordService::class.java))
                 isRecording = false
                 recordButton.text = "ابدأ التسجيل"
                 recordButton.setBackgroundColor(Color.parseColor("#6200EE"))
-                Toast.makeText(this, "تم حفظ الفيديو في المعرض (Gallery) بنجاح!", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "تم حفظ الفيديو في المعرض بنجاح!", Toast.LENGTH_LONG).show()
             }
         }
         rootLayout.addView(recordButton)
@@ -112,7 +107,6 @@ class MainActivity : Activity() {
         setContentView(scrollView)
     }
 
-    // المزامنة: لما ترجع تفتح التطبيق تاني وهو بيسجل، الكود ده هيجبر الزرار يظهر باللون الأحمر
     override fun onResume() {
         super.onResume()
         if (RecordService.isRunning) {
