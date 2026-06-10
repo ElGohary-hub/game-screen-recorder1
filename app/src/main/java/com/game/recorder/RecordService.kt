@@ -1,4 +1,4 @@
-package com.game.recorder
+herepackage com.game.recorder
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -49,19 +49,22 @@ class RecordService : Service() {
 
         val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, channelId)
-                .setContentTitle("جاري تسجيل الشاشة")
+                .setContentTitle("جاري تسجيل الشاشة والصوت")
                 .setContentText("تطبيق مسجل الألعاب يعمل الآن في الخلفية...")
                 .setSmallIcon(android.R.drawable.ic_media_play)
                 .build()
         } else {
             Notification.Builder(this)
-                .setContentTitle("جاري تسجيل الشاشة")
+                .setContentTitle("جاري تسجيل الشاشة والصوت")
                 .setContentText("تطبيق مسجل الألعاب يعمل الآن في الخلفية...")
                 .setSmallIcon(android.R.drawable.ic_media_play)
                 .build()
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        // هنا بنقول للنظام إن الخدمة دي بتسجل شاشة ومايك مع بعض لأندرويد 14
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         } else {
             startForeground(1, notification)
