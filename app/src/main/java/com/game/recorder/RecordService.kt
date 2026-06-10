@@ -1,130 +1,122 @@
 package com.game.recorder
 
-import android.app.Activity
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
+import android.content.pm.ServiceInfo
+import android.hardware.display.DisplayManager
+import android.hardware.display.VirtualDisplay
+import android.media.MediaRecorder
+import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
-import android.os.Bundle
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.RadioButton
-import android.widget.RadioGroup
-import android.widget.TextView
-import android.widget.Toast
+import android.os.IBinder
+import android.util.DisplayMetrics
+import android.view.WindowManager
 import java.io.File
 
-class MainActivity : Activity() {
+class RecordService : Service() {
 
-    private var isRecording = false
-    private lateinit var projectionManager: MediaProjectionManager
-    private lateinit var recordButton: Button
-    private val RECORD_REQUEST_CODE = 101
+    private var mediaProjection: MediaProjection? = null
+    private var mediaRecorder: MediaRecorder? = null
+    private var virtualDisplay: VirtualDisplay? = null
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    override fun onBind(intent: Intent?): IBinder? = null
 
-        projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val resultCode = intent?.getIntExtra("resultCode", -1) ?: -1
+        val resultData = intent?.getParcelableExtra<Intent>("data")
 
-        val rootLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#121212"))
-            setPadding(50, 80, 50, 50)
+        if (resultCode != -1 && resultData != null) {
+            startForegroundServiceWithNotification()
+            startRecording(resultCode, resultData)
+        } else {
+            stopSelf()
         }
-
-        val titleText = TextView(this).apply {
-            text = "لوحة تحكم المسجل الاحترافي"
-            textSize = 22f
-            setTextColor(Color.WHITE)
-            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-        }
-        rootLayout.addView(titleText)
-
-        addSpacer(rootLayout, 60)
-
-        val typeLabel = TextView(this).apply { text = "نوع التسجيل:"; textSize = 16f; setTextColor(Color.LTGRAY) }
-        rootLayout.addView(typeLabel)
-
-        val modeGroup = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL }
-        val videoRadio = RadioButton(this).apply { text = "شاشة وصوت"; setTextColor(Color.WHITE); isChecked = true }
-        val audioRadio = RadioButton(this).apply { text = "صوت فقط"; setTextColor(Color.WHITE) }
-        modeGroup.addView(videoRadio)
-        modeGroup.addView(audioRadio)
-        rootLayout.addView(modeGroup)
-
-        addSpacer(rootLayout, 40)
-
-        val filterLabel = TextView(this).apply { text = "وضع فلاتر الرسوميات:"; textSize = 16f; setTextColor(Color.LTGRAY) }
-        rootLayout.addView(filterLabel)
-
-        val filterGroup = RadioGroup(this).apply { orientation = LinearLayout.VERTICAL }
-        val noFilter = RadioButton(this).apply { text = "بدون فلاتر"; setTextColor(Color.WHITE); isChecked = true }
-        val liveFilter = RadioButton(this).apply { text = "فلتر مباشر أثناء اللعب"; setTextColor(Color.WHITE) }
-        val postFilter = RadioButton(this).apply { text = "تطبيق الفلتر بعد التسجيل"; setTextColor(Color.WHITE) }
-        filterGroup.addView(noFilter)
-        filterGroup.addView(liveFilter)
-        filterGroup.addView(postFilter)
-        rootLayout.addView(filterGroup)
-
-        addSpacer(rootLayout, 80)
-
-        recordButton = Button(this).apply {
-            text = "ابدأ التسجيل"
-            setBackgroundColor(Color.parseColor("#6200EE"))
-            setTextColor(Color.WHITE)
-            textSize = 18f
-            setPadding(20, 40, 20, 40)
-        }
-
-        recordButton.setOnClickListener {
-            if (!isRecording) {
-                val captureIntent = projectionManager.createScreenCaptureIntent()
-                startActivityForResult(captureIntent, RECORD_REQUEST_CODE)
-            } else {
-                // إيقاف المحرك الحقيقي
-                stopService(Intent(this, RecordService::class.java))
-                isRecording = false
-                recordButton.text = "ابدأ التسجيل"
-                recordButton.setBackgroundColor(Color.parseColor("#6200EE"))
-                
-                val file = File(getExternalFilesDir(null), "game_record.mp4")
-                Toast.makeText(this, "تم الحفظ بنجاح في: ${file.name}", Toast.LENGTH_LONG).show()
-            }
-        }
-        rootLayout.addView(recordButton)
-
-        setContentView(rootLayout)
+        return START_NOT_STICKY
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == RECORD_REQUEST_CODE) {
-            if (resultCode == RESULT_OK && data != null) {
-                isRecording = true
-                recordButton.text = "إيقاف وحفظ التسجيل"
-                recordButton.setBackgroundColor(Color.RED)
+    private fun startForegroundServiceWithNotification() {
+        val channelId = "recorder_channel"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(channelId, "Screen Recorder", NotificationManager.IMPORTANCE_LOW)
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.createNotificationChannel(channel)
+        }
 
-                // تشغيل المحرك الحقيقي في الخلفية وتمرير الصلاحية له
-                val serviceIntent = Intent(this, RecordService::class.java).apply {
-                    putExtra("resultCode", resultCode)
-                    putExtra("data", data)
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(serviceIntent)
-                } else {
-                    startService(serviceIntent)
-                }
-                Toast.makeText(this, "جاري التسجيل الفعلي الآن...", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "تم رفض الصلاحية", Toast.LENGTH_SHORT).show()
-            }
+        val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, channelId)
+                .setContentTitle("جاري تسجيل الشاشة")
+                .setContentText("تطبيق مسجل الألعاب يعمل الآن في الخلفية...")
+                .setSmallIcon(android.R.drawable.ic_media_play)
+                .build()
+        } else {
+            Notification.Builder(this)
+                .setContentTitle("جاري تسجيل الشاشة")
+                .setContentText("تطبيق مسجل الألعاب يعمل الآن في الخلفية...")
+                .setSmallIcon(android.R.drawable.ic_media_play)
+                .build()
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+        } else {
+            startForeground(1, notification)
         }
     }
 
-    private fun addSpacer(layout: LinearLayout, height: Int) {
-        val spacer = TextView(this)
-        spacer.height = height
-        layout.addView(spacer)
+    private fun startRecording(resultCode: Int, resultData: Intent) {
+        val mpManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        mediaProjection = mpManager.getMediaProjection(resultCode, resultData)
+
+        val windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val metrics = DisplayMetrics()
+        windowManager.defaultDisplay.getMetrics(metrics)
+        val screenWidth = metrics.widthPixels
+        val screenHeight = metrics.heightPixels
+        val screenDensity = metrics.densityDpi
+
+        val outputFile = File(getExternalFilesDir(null), "game_record.mp4")
+
+        mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            MediaRecorder(this)
+        } else {
+            MediaRecorder()
+        }.apply {
+            setAudioSource(MediaRecorder.AudioSource.MIC)
+            setVideoSource(MediaRecorder.VideoSource.SURFACE)
+            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            setVideoEncoder(MediaRecorder.VideoEncoder.H264)
+            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            setVideoSize(screenWidth, screenHeight)
+            setVideoFrameRate(30)
+            setVideoEncodingBitRate(8 * 1024 * 1024)
+            setOutputFile(outputFile.absolutePath)
+            prepare()
+        }
+
+        mediaRecorder?.start()
+
+        virtualDisplay = mediaProjection?.createVirtualDisplay(
+            "MainScreen",
+            screenWidth, screenHeight, screenDensity,
+            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+            mediaRecorder?.surface, null, null
+        )
+    }
+
+    override fun onDestroy() {
+        try {
+            mediaRecorder?.stop()
+            mediaRecorder?.reset()
+            mediaRecorder?.release()
+        } catch (e: Exception) { e.printStackTrace() }
+
+        virtualDisplay?.release()
+        mediaProjection?.stop()
+        super.onDestroy()
     }
 }
