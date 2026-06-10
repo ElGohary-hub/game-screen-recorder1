@@ -12,9 +12,11 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import java.io.File
+import kotlin.system.exitProcess
 
 class MainActivity : Activity() {
 
@@ -26,7 +28,16 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // طلب صلاحيات المايك والإشعارات من المستخدم لتفادي إغلاق التطبيق
+        // الصندوق الأسود: تسجيل الخطأ القاتل قبل ما التطبيق يخرج
+        val prefs = getSharedPreferences("CrashLog", Context.MODE_PRIVATE)
+        val lastCrash = prefs.getString("error", null)
+
+        Thread.setDefaultUncaughtExceptionHandler { _, exception ->
+            val errorMsg = exception.stackTraceToString()
+            getSharedPreferences("CrashLog", Context.MODE_PRIVATE).edit().putString("error", errorMsg).apply()
+            exitProcess(1) // قفل التطبيق فوراً عشان يلحق يحفظ الخطأ
+        }
+
         val permissions = mutableListOf(android.Manifest.permission.RECORD_AUDIO)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
@@ -37,10 +48,24 @@ class MainActivity : Activity() {
 
         projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 
+        val scrollView = ScrollView(this)
         val rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#121212"))
             setPadding(50, 80, 50, 50)
+        }
+        scrollView.addView(rootLayout)
+
+        // لو التطبيق كان عمل كراش، هيعرضلك السبب هنا أول ما تفتحه
+        if (lastCrash != null) {
+            val errorText = TextView(this).apply {
+                text = "سبب الكراش الأخير اللي قفل التطبيق:\n\n$lastCrash"
+                setTextColor(Color.RED)
+                textSize = 14f
+            }
+            rootLayout.addView(errorText)
+            addSpacer(rootLayout, 40)
+            prefs.edit().clear().apply() // مسح الخطأ عشان ميظهرش كل مرة
         }
 
         val titleText = TextView(this).apply {
@@ -88,7 +113,6 @@ class MainActivity : Activity() {
         }
 
         recordButton.setOnClickListener {
-            // التأكد إن المستخدم وافق على المايك قبل تشغيل المحرك
             if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "لازم توافق على صلاحية المايك الأول!", Toast.LENGTH_LONG).show()
                 requestPermissions(permissions.toTypedArray(), 200)
@@ -110,7 +134,7 @@ class MainActivity : Activity() {
         }
         rootLayout.addView(recordButton)
 
-        setContentView(rootLayout)
+        setContentView(scrollView)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
