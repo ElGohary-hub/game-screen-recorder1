@@ -6,7 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.ContentValues
 import android.content.Context
-import android.content.Intent
+import         android.content.Intent
 import android.content.pm.ServiceInfo
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
@@ -23,7 +23,6 @@ import android.view.WindowManager
 
 class RecordService : Service() {
 
-    // الذاكرة المشتركة اللي هتقول للواجهة إن المحرك داير
     companion object {
         var isRunning = false
     }
@@ -39,12 +38,12 @@ class RecordService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         try {
             val resultCode = intent?.getIntExtra("resultCode", -1) ?: -1
-            val resultData = intent?.getParcelableExtra<Intent>("data")
+            val resultData = intent?.getParcelableExtra("data") as? Intent
 
             if (resultCode != -1 && resultData != null) {
                 startForegroundServiceWithNotification()
                 startRecording(resultCode, resultData)
-                isRunning = true // المحرك بدأ بنجاح
+                isRunning = true
             } else {
                 stopSelf()
             }
@@ -144,7 +143,7 @@ class RecordService : Service() {
     }
 
     override fun onDestroy() {
-        isRunning = false // المحرك وقف خلاص
+        isRunning = false
         try {
             mediaRecorder?.stop()
             mediaRecorder?.reset()
